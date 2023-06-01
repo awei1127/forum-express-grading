@@ -1,5 +1,9 @@
 const passport = require('passport')
 const LocalStrategy = require('passport-local')
+const passportJWT = require('passport-jwt')
+const JWTStrategy = passportJWT.Strategy
+const ExtractJWT = passportJWT.ExtractJwt
+
 const bcrypt = require('bcryptjs')
 const { User, Restaurant } = require('../models')
 
@@ -24,6 +28,29 @@ passport.use(new LocalStrategy(
       .catch(err => cb(err))
   }
 ))
+
+// 當request帶著token來的時候，用來驗證&反序列化的方法。
+passport.use(new JWTStrategy(
+  // customize user field
+  {
+    jwtFromRequest: ExtractJWT.fromAuthHeaderAsBearerToken(),
+    secretOrKey: process.env.JWT_SECRET
+  },
+  // authenticate user
+  (jwtPayload, cb) => {
+    User.findByPk(jwtPayload.id, {
+      include: [
+        { model: Restaurant, as: 'FavoritedRestaurants' },
+        { model: Restaurant, as: 'LikedRestaurants' },
+        { model: User, as: 'Followers' },
+        { model: User, as: 'Followings' }
+      ]
+    })
+      .then(user => cb(null, user))
+      .catch(err => cb(err))
+  }
+))
+
 // serialize and deserialize user
 passport.serializeUser((user, cb) => {
   cb(null, user.id)
